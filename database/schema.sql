@@ -1,0 +1,39 @@
+CREATE TABLE IF NOT EXISTS mesas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    numero INTEGER NOT NULL UNIQUE,
+    capacidad INTEGER NOT NULL,
+    estado TEXT NOT NULL DEFAULT 'disponible'
+);
+
+CREATE TABLE IF NOT EXISTS platos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    descripcion TEXT,
+    precio REAL NOT NULL,
+    disponible INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS pedidos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    mesa_id INTEGER NOT NULL,
+    estado TEXT NOT NULL DEFAULT 'abierto',
+    fecha TEXT NOT NULL,
+    FOREIGN KEY (mesa_id) REFERENCES mesas(id)
+);
+
+CREATE TABLE IF NOT EXISTS pedido_platos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pedido_id INTEGER NOT NULL,
+    plato_id INTEGER NOT NULL,
+    cantidad INTEGER NOT NULL DEFAULT 1,
+    FOREIGN KEY (pedido_id) REFERENCES pedidos(id),
+    FOREIGN KEY (plato_id) REFERENCES platos(id)
+);
+
+CREATE TABLE IF NOT EXISTS facturas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pedido_id INTEGER NOT NULL UNIQUE,
+    total REAL NOT NULL,
+    fecha_pago TEXT NOT NULL,
+    FOREIGN KEY (pedido_id) REFERENCES pedidos(id)
+);

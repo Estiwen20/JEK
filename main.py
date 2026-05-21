@@ -1,0 +1,17 @@
+import sys
+from PyQt6.QtWidgets import QApplication
+from database.connection import init_db
+from views.main_window import MainWindow
+
+
+def main():
+    init_db()
+    app = QApplication(sys.argv)
+    app.setApplicationName("Restaurante")
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()
