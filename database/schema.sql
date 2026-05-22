@@ -37,3 +37,11 @@ CREATE TABLE IF NOT EXISTS facturas (
     fecha_pago TEXT NOT NULL,
     FOREIGN KEY (pedido_id) REFERENCES pedidos(id)
 );
+
+CREATE TABLE IF NOT EXISTS usuarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    usuario TEXT NOT NULL UNIQUE,
+    contrasena TEXT NOT NULL,
+    rol TEXT NOT NULL DEFAULT 'mesero'
+);

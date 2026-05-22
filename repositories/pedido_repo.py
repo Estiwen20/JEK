@@ -44,7 +44,9 @@ def obtener_pedidos(filtro_estado=None, filtro_mesa_id=None, filtro_fecha=None):
 
 def obtener_items_pedido(pedido_id):
     with get_connection() as conn:
-        filas = conn.execute("SELECT * FROM pedido_platos WHERE pedido_id=?", (pedido_id,)).fetchall()
+        filas = conn.execute(
+            "SELECT * FROM pedido_platos WHERE pedido_id=?", (pedido_id,)
+        ).fetchall()
     return [PedidoPlato(id=f["id"], pedido_id=f["pedido_id"],
                         plato_id=f["plato_id"], cantidad=f["cantidad"]) for f in filas]
 
@@ -58,3 +60,17 @@ def eliminar_pedido(pedido_id):
     with get_connection() as conn:
         conn.execute("DELETE FROM pedido_platos WHERE pedido_id=?", (pedido_id,))
         conn.execute("DELETE FROM pedidos WHERE id=?", (pedido_id,))
+
+
+def obtener_pedido_abierto_por_mesa(mesa_id):
+    with get_connection() as conn:
+        f = conn.execute(
+            """SELECT * FROM pedidos
+               WHERE mesa_id=? AND estado IN ('abierto', 'en preparación', 'listo')
+               ORDER BY fecha DESC LIMIT 1""",
+            (mesa_id,)
+        ).fetchone()
+    if f:
+        return Pedido(id=f["id"], mesa_id=f["mesa_id"],
+                      estado=f["estado"], fecha=f["fecha"])
+    return None
