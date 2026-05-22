@@ -1,10 +1,10 @@
 import sys
 from PyQt6.QtWidgets import QApplication
-from database.connection import init_db
-from repositories.usuario_repo import obtener_usuarios
-from views.login_view import LoginView
-from views.main_window import MainWindow
-from views.primer_usuario_view import PrimerUsuarioView
+from backend.database.connection import init_db
+from backend.repositories.usuario_repo import obtener_usuarios
+from frontend.views.login_view import LoginView
+from frontend.views.main_window import MainWindow
+from frontend.views.primer_usuario_view import PrimerUsuarioView
 
 
 def main():
