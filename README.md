@@ -85,4 +85,3 @@ Desarrollado por JEK Innovation
 📄 Licencia
 Este proyecto es de uso académico.
 
-Copia esto, crea un archivo README.md en la raíz del proyecto y pégalo. En GitHub se verá formateado automáticamente. Solo cambia tu-usuario en la URL de git por tu usuario real de GitHub. 🚀
