@@ -8,6 +8,7 @@ from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, pyqtSignal, QPoin
 from PyQt6.QtGui import QFont, QPixmap
 
 from backend.repositories.usuario_repo import obtener_usuario_por_credenciales
+from frontend.views.registro_view import RegistroDialog
 
 
 class LoginView(QWidget):
@@ -16,7 +17,7 @@ class LoginView(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Restaurante — Iniciar Sesión")
-        self.setMinimumSize(700, 500)
+        self.setMinimumSize(900, 580)
         self._build_ui()
         self._apply_styles()
 
@@ -34,7 +35,7 @@ class LoginView(QWidget):
 
         # Capa 1 — logo de fondo
         logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                         "..", "..", "assets", "logo.png")
+                                 "..", "assets", "logo.png")
         self.lbl_logo = QLabel()
         self.lbl_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_logo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -128,10 +129,17 @@ class LoginView(QWidget):
         self.btn_login.clicked.connect(self._intentar_login)
         card_layout.addWidget(self.btn_login)
 
+        btn_registro = QPushButton("¿No tienes cuenta? Regístrate")
+        btn_registro.setObjectName("btnRegistro")
+        btn_registro.setFixedHeight(36)
+        btn_registro.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_registro.clicked.connect(self._abrir_registro)
+        card_layout.addWidget(btn_registro)
+
         der_layout.addWidget(self.card)
 
-        root.addWidget(panel_izq, stretch=-1)
-        root.addWidget(panel_der, stretch=2)
+        root.addWidget(panel_izq, stretch=1)
+        root.addWidget(panel_der, stretch=1)
 
     def _intentar_login(self):
         usuario = self.input_usuario.text().strip()
@@ -149,6 +157,10 @@ class LoginView(QWidget):
             self._mostrar_error("✖  Usuario o contraseña incorrectos.")
             self.input_contrasena.clear()
             self._shake()
+
+    def _abrir_registro(self):
+        dialog = RegistroDialog(self)
+        dialog.exec()
 
     def _mostrar_error(self, msg):
         self.lbl_error.setText(msg)
@@ -235,4 +247,11 @@ class LoginView(QWidget):
             }
             #btnLogin:hover { background-color: #b48ef0; }
             #btnLogin:pressed { background-color: #9a73e8; }
+            #btnRegistro {
+                background: transparent;
+                color: #a6adc8;
+                border: none;
+                font-size: 12px;
+            }
+            #btnRegistro:hover { color: #cba6f7; }
         """)
