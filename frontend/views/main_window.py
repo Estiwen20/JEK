@@ -1,9 +1,10 @@
+import os
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout,
     QVBoxLayout, QPushButton, QLabel, QStackedWidget, QMessageBox
 )
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QPixmap
 
 from frontend.views.mesas_view import MesasView
 from frontend.views.platos_view import PlatosView
@@ -37,10 +38,17 @@ class MainWindow(QMainWindow):
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
         sidebar_layout.setSpacing(0)
 
-        logo = QLabel("🍽  Restaurante")
+        logo = QLabel()
         logo.setObjectName("logo")
         logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        logo.setFixedHeight(70)
+        logo.setFixedHeight(200)
+        logo.setScaledContents(True)
+        logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 "..", "..", "assets", "logo.png")
+        if os.path.exists(logo_path):
+            logo.setPixmap(QPixmap(logo_path))
+        else:
+            logo.setText("🍽  Restaurante")
         sidebar_layout.addWidget(logo)
 
         # Info usuario

@@ -58,7 +58,9 @@ def actualizar_estado_pedido(pedido_id, nuevo_estado):
 
 def eliminar_pedido(pedido_id):
     with get_connection() as conn:
+        # Eliminar items del pedido
         conn.execute("DELETE FROM pedido_platos WHERE pedido_id=?", (pedido_id,))
+        # Eliminar el pedido (la factura queda con pedido_id=NULL)
         conn.execute("DELETE FROM pedidos WHERE id=?", (pedido_id,))
 
 
@@ -66,7 +68,7 @@ def obtener_pedido_abierto_por_mesa(mesa_id):
     with get_connection() as conn:
         f = conn.execute(
             """SELECT * FROM pedidos
-               WHERE mesa_id=? AND estado IN ('abierto', 'en preparación', 'listo')
+               WHERE mesa_id=? AND estado NOT IN ('cerrado')
                ORDER BY fecha DESC LIMIT 1""",
             (mesa_id,)
         ).fetchone()

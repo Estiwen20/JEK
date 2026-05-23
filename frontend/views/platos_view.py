@@ -82,7 +82,7 @@ class PlatosView(QWidget):
             self.tabla.setItem(row, 3, QTableWidgetItem(f"${plato.precio:.2f}"))
 
             disp_item = QTableWidgetItem("Sí" if plato.disponible else "No")
-            disp_item.setForeground(Qt.GlobalColor.white)
+            disp_item.setForeground(QColor("#1e1e2e"))
             disp_item.setBackground(
                 QColor("#a6e3a1") if plato.disponible else QColor("#f38ba8")
             )

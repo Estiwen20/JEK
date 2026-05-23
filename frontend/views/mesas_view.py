@@ -149,18 +149,18 @@ class PanelPedido(QWidget):
         header_left.addWidget(self.lbl_mesa)
 
         btn_cerrar = QPushButton("✕")
-        btn_cerrar.setFixedSize(28, 28)
+        btn_cerrar.setFixedSize(40, 40)
         btn_cerrar.setStyleSheet("""
             QPushButton {
-                background: transparent;
-                color: #a6adc8;
+                background-color: #f38ba8;
+                color: #ffffff;
                 border: none;
-                font-size: 14px;
+                font-size: 16px;
+                font-weight: bold;
                 border-radius: 6px;
             }
             QPushButton:hover {
-                background: #313244;
-                color: #f38ba8;
+                background-color: #e06c8a;
             }
         """)
         btn_cerrar.clicked.connect(self._solicitar_cierre)

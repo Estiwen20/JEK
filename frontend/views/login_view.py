@@ -35,7 +35,7 @@ class LoginView(QWidget):
 
         # Capa 1 — logo de fondo
         logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 "..", "assets", "logo.png")
+                                 "..", "..", "assets", "logo.png")
         self.lbl_logo = QLabel()
         self.lbl_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_logo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
