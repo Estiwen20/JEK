@@ -3,11 +3,11 @@ from PyQt6.QtWidgets import (
     QPushButton, QDialog, QFormLayout, QSpinBox,
     QComboBox, QMessageBox, QScrollArea, QGridLayout,
     QFrame, QTableWidget, QTableWidgetItem, QHeaderView,
-    QGroupBox
+    QGroupBox, QGraphicsDropShadowEffect
 )
 from PyQt6.QtCore import (
     Qt, QPropertyAnimation, QEasingCurve,
-    QPoint, QRect, QSize
+    QPoint, QRect, QSize, pyqtProperty
 )
 from PyQt6.QtGui import QColor
 
@@ -40,19 +40,24 @@ class MesaCard(QFrame):
         self.on_select = on_select
         self.on_doble_clic = on_doble_clic
         self.seleccionada = False
-        self.setFixedSize(120, 130)
+        self._hover = False
+        self.setFixedSize(128, 138)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._build_ui()
+        self._apply_shadow()
+
+    def _apply_shadow(self):
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(14)
+        shadow.setOffset(0, 3)
+        shadow.setColor(QColor(0, 0, 0, 90))
+        self.setGraphicsEffect(shadow)
 
     def _build_ui(self):
         colores = COLORES_ESTADO.get(self.mesa.estado, COLORES_ESTADO["disponible"])
-        self.setStyleSheet(f"""
-            QFrame {{
-                background-color: {colores['fondo']};
-                border: 2px solid {colores['borde']};
-                border-radius: 10px;
-            }}
-        """)
+        self._colores = colores
+        self._update_style(hover=False)
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 10, 8, 10)
         layout.setSpacing(4)
@@ -61,7 +66,7 @@ class MesaCard(QFrame):
         icono = ICONOS_CAPACIDAD.get(self.mesa.capacidad, "🍽")
         lbl_icono = QLabel(icono)
         lbl_icono.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lbl_icono.setStyleSheet("font-size: 26px; border: none; background: transparent;")
+        lbl_icono.setStyleSheet("font-size: 28px; border: none; background: transparent;")
 
         lbl_num = QLabel(f"Mesa #{self.mesa.numero}")
         lbl_num.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -87,6 +92,78 @@ class MesaCard(QFrame):
         layout.addWidget(lbl_cap)
         layout.addWidget(lbl_estado)
 
+    def _update_style(self, hover=False, seleccionada=False):
+        colores = self._colores if hasattr(self, '_colores') else COLORES_ESTADO["disponible"]
+        if seleccionada:
+            borde = "#cba6f7"
+            borde_w = "3px"
+            fondo = colores['fondo']
+        elif hover:
+            borde = "#cba6f7"
+            borde_w = "2px"
+            fondo = colores['fondo']
+        else:
+            borde = colores['borde']
+            borde_w = "2px"
+            fondo = colores['fondo']
+
+        self.setStyleSheet(f"""
+            QFrame {{
+                background-color: {fondo};
+                border: {borde_w} solid {borde};
+                border-radius: 12px;
+            }}
+        """)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        # Guardar posición original una sola vez al mostrarse
+        self._pos_original = None
+
+    def _get_pos_original(self):
+        # Captura la posición solo cuando está en reposo (sin animación activa)
+        if self._pos_original is None:
+            self._pos_original = self.pos()
+        return self._pos_original
+
+    def enterEvent(self, event):
+        self._hover = True
+        if not self.seleccionada:
+            self._update_style(hover=True)
+            origen = self._get_pos_original()
+            # Detener animación anterior si existe
+            if hasattr(self, '_anim_up') and self._anim_up.state() == QPropertyAnimation.State.Running:
+                self._anim_up.stop()
+            if hasattr(self, '_anim_down') and self._anim_down.state() == QPropertyAnimation.State.Running:
+                self._anim_down.stop()
+            anim = QPropertyAnimation(self, b"pos")
+            anim.setDuration(120)
+            anim.setStartValue(self.pos())
+            anim.setEndValue(origen + QPoint(0, -3))
+            anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+            self._anim_up = anim
+            anim.start()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._hover = False
+        if not self.seleccionada:
+            self._update_style(hover=False)
+            origen = self._get_pos_original()
+            # Detener animación anterior si existe
+            if hasattr(self, '_anim_up') and self._anim_up.state() == QPropertyAnimation.State.Running:
+                self._anim_up.stop()
+            if hasattr(self, '_anim_down') and self._anim_down.state() == QPropertyAnimation.State.Running:
+                self._anim_down.stop()
+            anim = QPropertyAnimation(self, b"pos")
+            anim.setDuration(120)
+            anim.setStartValue(self.pos())
+            anim.setEndValue(origen)
+            anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+            self._anim_down = anim
+            anim.start()
+        super().leaveEvent(event)
+
     def mousePressEvent(self, event):
         self.on_select(self)
 
@@ -95,23 +172,7 @@ class MesaCard(QFrame):
 
     def set_seleccionada(self, valor):
         self.seleccionada = valor
-        colores = COLORES_ESTADO.get(self.mesa.estado, COLORES_ESTADO["disponible"])
-        if valor:
-            self.setStyleSheet(f"""
-                QFrame {{
-                    background-color: {colores['fondo']};
-                    border: 3px solid #cba6f7;
-                    border-radius: 10px;
-                }}
-            """)
-        else:
-            self.setStyleSheet(f"""
-                QFrame {{
-                    background-color: {colores['fondo']};
-                    border: 2px solid {colores['borde']};
-                    border-radius: 10px;
-                }}
-            """)
+        self._update_style(seleccionada=valor)
 
 
 class PanelPedido(QWidget):
@@ -134,7 +195,6 @@ class PanelPedido(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # ── Header ──
         header = QWidget()
         header.setStyleSheet("background-color: #181825; border-bottom: 1px solid #313244;")
         header_layout = QHBoxLayout(header)
@@ -159,9 +219,7 @@ class PanelPedido(QWidget):
                 font-weight: bold;
                 border-radius: 6px;
             }
-            QPushButton:hover {
-                background-color: #e06c8a;
-            }
+            QPushButton:hover { background-color: #e06c8a; }
         """)
         btn_cerrar.clicked.connect(self._solicitar_cierre)
 
@@ -170,7 +228,6 @@ class PanelPedido(QWidget):
         header_layout.addWidget(btn_cerrar)
         layout.addWidget(header)
 
-        # ── Scroll body ──
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet("border: none; background: transparent;")
@@ -180,7 +237,6 @@ class PanelPedido(QWidget):
         body_layout.setContentsMargins(16, 16, 16, 16)
         body_layout.setSpacing(14)
 
-        # Menú
         lbl_menu = QLabel("MENÚ DISPONIBLE")
         lbl_menu.setStyleSheet("font-size: 10px; font-weight: bold; color: #585b70; letter-spacing: 1px;")
         body_layout.addWidget(lbl_menu)
@@ -189,7 +245,6 @@ class PanelPedido(QWidget):
         self.menu_layout.setSpacing(6)
         body_layout.addLayout(self.menu_layout)
 
-        # Pedido actual
         lbl_pedido = QLabel("PEDIDO ACTUAL")
         lbl_pedido.setStyleSheet("font-size: 10px; font-weight: bold; color: #585b70; letter-spacing: 1px; margin-top: 6px;")
         body_layout.addWidget(lbl_pedido)
@@ -227,7 +282,6 @@ class PanelPedido(QWidget):
         scroll.setWidget(body)
         layout.addWidget(scroll)
 
-        # ── Footer ──
         footer = QWidget()
         footer.setStyleSheet("background-color: #181825; border-top: 1px solid #313244;")
         footer_layout = QVBoxLayout(footer)
@@ -298,10 +352,7 @@ class PanelPedido(QWidget):
             btn_menos = QPushButton("−")
             btn_menos.setFixedSize(24, 24)
             btn_menos.setStyleSheet("""
-                QPushButton {
-                    background: #313244; color: #cdd6f4;
-                    border: none; border-radius: 4px; font-size: 14px;
-                }
+                QPushButton { background: #313244; color: #cdd6f4; border: none; border-radius: 4px; font-size: 14px; }
                 QPushButton:hover { background: #45475a; }
             """)
 
@@ -313,10 +364,7 @@ class PanelPedido(QWidget):
             btn_mas = QPushButton("+")
             btn_mas.setFixedSize(24, 24)
             btn_mas.setStyleSheet("""
-                QPushButton {
-                    background: #313244; color: #cdd6f4;
-                    border: none; border-radius: 4px; font-size: 14px;
-                }
+                QPushButton { background: #313244; color: #cdd6f4; border: none; border-radius: 4px; font-size: 14px; }
                 QPushButton:hover { background: #45475a; }
             """)
 
@@ -386,15 +434,11 @@ class PanelPedido(QWidget):
             self._solicitar_cierre()
 
             if es_nuevo:
-                QMessageBox.information(
-                    self.parent(), "Pedido creado",
-                    f"✅ Pedido #{pedido_id} creado para Mesa #{mesa.numero}."
-                )
+                QMessageBox.information(self.parent(), "Pedido creado",
+                    f"✅ Pedido #{pedido_id} creado para Mesa #{mesa.numero}.")
             else:
-                QMessageBox.information(
-                    self.parent(), "Pedido actualizado",
-                    f"✅ Platos agregados al pedido #{pedido_id} de Mesa #{mesa.numero}."
-                )
+                QMessageBox.information(self.parent(), "Pedido actualizado",
+                    f"✅ Platos agregados al pedido #{pedido_id} de Mesa #{mesa.numero}.")
 
             if hasattr(self.parent(), "_cargar_mesas"):
                 self.parent()._cargar_mesas()
@@ -421,27 +465,35 @@ class MesasView(QWidget):
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.setSpacing(0)
 
-        # ── Contenido principal ──
         contenido = QWidget()
         contenido.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(contenido)
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
 
-        # Encabezado
         header = QHBoxLayout()
         titulo = QLabel("Tablero de Mesas")
-        titulo.setStyleSheet("font-size: 20px; font-weight: bold; color: #cba6f7;")
+        titulo.setStyleSheet("font-size: 22px; font-weight: bold; color: #cba6f7;")
         self.btn_nueva = QPushButton("+ Nueva Mesa")
         self.btn_nueva.setFixedWidth(140)
-        self.btn_nueva.setStyleSheet("background-color: #cba6f7; color: #1e1e2e; font-weight: bold; border-radius: 6px; padding: 7px;")
+        self.btn_nueva.setStyleSheet("""
+            QPushButton {
+                background-color: #cba6f7;
+                color: #1e1e2e;
+                font-weight: bold;
+                border-radius: 8px;
+                padding: 7px;
+                border: none;
+            }
+            QPushButton:hover { background-color: #b48ef0; }
+            QPushButton:pressed { background-color: #9a73e8; }
+        """)
         self.btn_nueva.clicked.connect(self._abrir_dialog_crear)
         header.addWidget(titulo)
         header.addStretch()
         header.addWidget(self.btn_nueva)
         layout.addLayout(header)
 
-        # Leyenda
         leyenda = QHBoxLayout()
         for estado, colores in COLORES_ESTADO.items():
             dot = QLabel("●")
@@ -454,24 +506,21 @@ class MesasView(QWidget):
         leyenda.addStretch()
         layout.addLayout(leyenda)
 
-        # Hint doble clic
         lbl_hint = QLabel("💡 Doble clic sobre una mesa para editarla")
         lbl_hint.setStyleSheet("font-size: 11px; color: #585b70;")
         layout.addWidget(lbl_hint)
 
-        # Grid con scroll
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet("border: none; background: transparent;")
         self.grid_container = QWidget()
         self.grid_container.setStyleSheet("background: transparent;")
         self.grid_layout = QGridLayout(self.grid_container)
-        self.grid_layout.setSpacing(12)
+        self.grid_layout.setSpacing(16)
         self.grid_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         scroll.setWidget(self.grid_container)
         layout.addWidget(scroll)
 
-        # Botones acción
         acciones = QHBoxLayout()
         btn_eliminar = QPushButton("🗑  Eliminar Mesa")
         btn_eliminar.clicked.connect(self._eliminar_mesa)
@@ -481,11 +530,12 @@ class MesasView(QWidget):
                 background-color: #89b4fa;
                 color: #1e1e2e;
                 font-weight: bold;
-                border-radius: 6px;
+                border-radius: 8px;
                 padding: 7px 16px;
                 border: none;
             }
             QPushButton:hover { background-color: #74a8f5; }
+            QPushButton:pressed { background-color: #5a94e8; }
         """)
         self.btn_tomar.clicked.connect(self._abrir_panel)
         acciones.addStretch()
@@ -495,7 +545,6 @@ class MesasView(QWidget):
 
         self.main_layout.addWidget(contenido)
 
-        # ── Panel lateral ──
         self.panel = PanelPedido(self)
         self.panel.hide()
         self.main_layout.addWidget(self.panel)
@@ -548,7 +597,6 @@ class MesasView(QWidget):
         self.panel.show()
         self.panel_visible = True
 
-        # Animación slide in
         ancho_panel = self.panel.width()
         self.panel.move(self.width(), 0)
         self.panel.resize(ancho_panel, self.height())
@@ -642,7 +690,7 @@ class MesaDialog(QDialog):
         botones = QHBoxLayout()
         btn_guardar = QPushButton("Guardar")
         btn_cancelar = QPushButton("Cancelar")
-        btn_guardar.setStyleSheet("background-color: #cba6f7; color: #1e1e2e; font-weight: bold;")
+        btn_guardar.setStyleSheet("background-color: #cba6f7; color: #1e1e2e; font-weight: bold; border-radius: 6px;")
         btn_guardar.clicked.connect(self.accept)
         btn_cancelar.clicked.connect(self.reject)
         botones.addWidget(btn_cancelar)

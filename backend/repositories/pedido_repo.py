@@ -58,9 +58,11 @@ def actualizar_estado_pedido(pedido_id, nuevo_estado):
 
 def eliminar_pedido(pedido_id):
     with get_connection() as conn:
-        # Eliminar items del pedido
+        # 1. Eliminar items del pedido
         conn.execute("DELETE FROM pedido_platos WHERE pedido_id=?", (pedido_id,))
-        # Eliminar el pedido (la factura queda con pedido_id=NULL)
+        # 2. Eliminar factura asociada si existe
+        conn.execute("DELETE FROM facturas WHERE pedido_id=?", (pedido_id,))
+        # 3. Eliminar el pedido
         conn.execute("DELETE FROM pedidos WHERE id=?", (pedido_id,))
 
 

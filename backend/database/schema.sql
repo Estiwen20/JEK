@@ -10,7 +10,9 @@ CREATE TABLE IF NOT EXISTS platos (
     nombre TEXT NOT NULL,
     descripcion TEXT,
     precio REAL NOT NULL,
-    disponible INTEGER NOT NULL DEFAULT 1
+    disponible INTEGER NOT NULL DEFAULT 1,
+    categoria TEXT NOT NULL DEFAULT 'Otros',
+    icono TEXT NOT NULL DEFAULT 'otros'
 );
 
 CREATE TABLE IF NOT EXISTS pedidos (

@@ -5,9 +5,11 @@ from PyQt6.QtWidgets import (
     QHeaderView, QSpinBox, QListWidget, QListWidgetItem,
     QSplitter, QGroupBox
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor
 from datetime import datetime
+import threading
+import sys
 
 from backend.repositories.pedido_repo import (
     crear_pedido, agregar_plato_a_pedido, quitar_plato_de_pedido,
@@ -16,6 +18,21 @@ from backend.repositories.pedido_repo import (
 )
 from backend.repositories.mesa_repo import obtener_mesas
 from backend.repositories.plato_repo import obtener_platos, obtener_plato_por_id
+
+
+def _tocar_campana():
+    """Reproduce sonido de campana usando winsound en Windows."""
+    def _play():
+        try:
+            if sys.platform == "win32":
+                import winsound
+                for freq, dur in [(880, 120), (1100, 120), (1320, 200)]:
+                    winsound.Beep(freq, dur)
+            else:
+                print("\a", end="", flush=True)
+        except Exception:
+            pass
+    threading.Thread(target=_play, daemon=True).start()
 
 
 class PedidosView(QWidget):
@@ -65,11 +82,13 @@ class PedidosView(QWidget):
         # ── Splitter: tabla izq | detalle der ──
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # Tabla pedidos
+        # Tabla pedidos — 5 columnas, la última es la campana
         self.tabla = QTableWidget()
-        self.tabla.setColumnCount(4)
-        self.tabla.setHorizontalHeaderLabels(["ID", "Mesa", "Estado", "Fecha"])
+        self.tabla.setColumnCount(5)
+        self.tabla.setHorizontalHeaderLabels(["ID", "Mesa", "Estado", "Fecha", "🔔"])
         self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.tabla.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+        self.tabla.setColumnWidth(4, 54)
         self.tabla.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.tabla.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tabla.verticalHeader().setVisible(False)
@@ -131,22 +150,97 @@ class PedidosView(QWidget):
             filtro_mesa_id=mesa_id
         )
         self.tabla.setRowCount(len(self.pedidos))
+
         colores_estado = {
-            "abierto": "#89b4fa",
+            "abierto":        "#89b4fa",
             "en preparación": "#fab387",
-            "listo": "#a6e3a1",
-            "cerrado": "#585b70",
+            "listo":          "#a6e3a1",
+            "cerrado":        "#585b70",
         }
+
         for row, pedido in enumerate(self.pedidos):
             self.tabla.setItem(row, 0, QTableWidgetItem(str(pedido.id)))
             self.tabla.setItem(row, 1, QTableWidgetItem(str(pedido.mesa_id)))
+
             estado_item = QTableWidgetItem(pedido.estado.capitalize())
             color = colores_estado.get(pedido.estado, "#cdd6f4")
             estado_item.setForeground(QColor(color))
             self.tabla.setItem(row, 2, estado_item)
             self.tabla.setItem(row, 3, QTableWidgetItem(pedido.fecha))
+
+            # ── Botón campana ──
+            # Solo se muestra si el pedido NO está listo ni cerrado
+            btn_campana = QPushButton("🔔")
+            btn_campana.setToolTip("Marcar como listo y pasar a facturación")
+            btn_campana.setCursor(Qt.CursorShape.PointingHandCursor)
+
+            if pedido.estado in ("listo", "cerrado"):
+                btn_campana.setEnabled(False)
+                btn_campana.setStyleSheet("""
+                    QPushButton {
+                        background: transparent;
+                        border: none;
+                        font-size: 18px;
+                        color: #45475a;
+                    }
+                """)
+            else:
+                btn_campana.setStyleSheet("""
+                    QPushButton {
+                        background: transparent;
+                        border: none;
+                        font-size: 18px;
+                        color: #f9e2af;
+                    }
+                    QPushButton:hover {
+                        background-color: #2a2a1e;
+                        border-radius: 6px;
+                        color: #f9e2af;
+                    }
+                    QPushButton:pressed {
+                        color: #a6e3a1;
+                        background-color: #1e3a2f;
+                        border-radius: 6px;
+                    }
+                """)
+                pedido_id = pedido.id
+                btn_campana.clicked.connect(
+                    lambda _, pid=pedido_id, btn=btn_campana, r=row: self._marcar_listo(pid, btn, r)
+                )
+
+            self.tabla.setCellWidget(row, 4, btn_campana)
+            self.tabla.setRowHeight(row, 42)
+
         self.lista_items.setRowCount(0)
         self.lbl_total.setText("Total: $0.00")
+
+    def _marcar_listo(self, pedido_id, btn, row):
+        """Toca la campana, marca el pedido como listo y recarga."""
+        # Animación visual del botón
+        btn.setText("✅")
+        btn.setEnabled(False)
+        btn.setStyleSheet("""
+            QPushButton {
+                background-color: #1e3a2f;
+                border: none;
+                font-size: 18px;
+                color: #a6e3a1;
+                border-radius: 6px;
+            }
+        """)
+
+        # Reproducir campana en hilo separado
+        _tocar_campana()
+
+        # Actualizar estado en BD
+        try:
+            actualizar_estado_pedido(pedido_id, "listo")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo marcar como listo:\n{e}")
+            return
+
+        # Recargar tabla después de un pequeño delay para que se vea la animación
+        QTimer.singleShot(600, self._cargar_pedidos)
 
     def _mostrar_detalle(self):
         pedido = self._pedido_seleccionado()
@@ -270,7 +364,6 @@ class NuevoPedidoDialog(QDialog):
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(12)
 
-        # Mesa
         mesa_layout = QHBoxLayout()
         mesa_layout.addWidget(QLabel("Mesa:"))
         self.combo_mesa = QComboBox()
@@ -279,7 +372,6 @@ class NuevoPedidoDialog(QDialog):
         mesa_layout.addWidget(self.combo_mesa)
         layout.addLayout(mesa_layout)
 
-        # Selección de platos
         grupo = QGroupBox("Agregar platos al pedido")
         grupo_layout = QVBoxLayout(grupo)
 
