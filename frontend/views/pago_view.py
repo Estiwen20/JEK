@@ -21,8 +21,9 @@ from frontend.utils.helpers import generar_factura_pdf
 
 
 class PagoView(QWidget):
-    def __init__(self):
+    def __init__(self, usuario=None):
         super().__init__()
+        self.usuario = usuario
         self._build_ui()
         self._cargar_mesas_con_pedidos()
 
@@ -31,7 +32,6 @@ class PagoView(QWidget):
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
 
-        # ── Encabezado ──
         header = QHBoxLayout()
         titulo = QLabel("Pagos y Facturación")
         titulo.setStyleSheet("font-size: 20px; font-weight: bold; color: #cba6f7;")
@@ -43,7 +43,6 @@ class PagoView(QWidget):
         header.addWidget(btn_actualizar)
         layout.addLayout(header)
 
-        # ── Mesas listas para cobrar ──
         lbl_pendientes = QLabel("Mesas listas para cobrar:")
         lbl_pendientes.setStyleSheet("font-size: 13px; color: #a6adc8;")
         layout.addWidget(lbl_pendientes)
@@ -58,7 +57,6 @@ class PagoView(QWidget):
         self.tabla_mesas.clicked.connect(self._mostrar_detalle_mesa)
         layout.addWidget(self.tabla_mesas)
 
-        # ── Detalle de pedidos de la mesa seleccionada ──
         lbl_detalle = QLabel("Detalle:")
         lbl_detalle.setStyleSheet("font-size: 13px; color: #a6adc8;")
         layout.addWidget(lbl_detalle)
@@ -76,23 +74,18 @@ class PagoView(QWidget):
         self.lbl_total.setStyleSheet("font-size: 15px; font-weight: bold; color: #a6e3a1;")
         layout.addWidget(self.lbl_total)
 
-        # ── Botón pagar ──
         btn_layout = QHBoxLayout()
         self.btn_pagar = QPushButton("💳  Registrar Pago y Generar Factura")
         self.btn_pagar.setFixedHeight(42)
         self.btn_pagar.setStyleSheet("""
-            background-color: #a6e3a1;
-            color: #1e1e2e;
-            font-weight: bold;
-            font-size: 14px;
-            border-radius: 8px;
+            background-color: #a6e3a1; color: #1e1e2e;
+            font-weight: bold; font-size: 14px; border-radius: 8px;
         """)
         self.btn_pagar.clicked.connect(self._registrar_pago)
         btn_layout.addStretch()
         btn_layout.addWidget(self.btn_pagar)
         layout.addLayout(btn_layout)
 
-        # ── Historial de facturas ──
         lbl_historial = QLabel("Historial de facturas:")
         lbl_historial.setStyleSheet("font-size: 13px; color: #a6adc8; margin-top: 8px;")
         layout.addWidget(lbl_historial)
@@ -110,19 +103,15 @@ class PagoView(QWidget):
         btn_abrir.setFixedWidth(180)
         layout.addWidget(btn_abrir, alignment=Qt.AlignmentFlag.AlignRight)
 
-    # ── Carga ──
-
     def _actualizar(self):
         self._cargar_mesas_con_pedidos()
         self.tabla_detalle.setRowCount(0)
         self.lbl_total.setText("Total: $0.00")
 
     def _cargar_mesas_con_pedidos(self):
-        """Agrupa todos los pedidos 'listo' por mesa."""
         pedidos = obtener_pedidos(filtro_estado="listo")
 
-        # Agrupar por mesa_id
-        self.grupos = {}  # mesa_id -> [pedidos]
+        self.grupos = {}
         for p in pedidos:
             self.grupos.setdefault(p.mesa_id, []).append(p)
 
@@ -134,7 +123,7 @@ class PagoView(QWidget):
             nombre_mesa = f"Mesa #{mesa.numero}" if mesa else f"Mesa ID {mesa_id}"
 
             item_mesa = QTableWidgetItem(nombre_mesa)
-            item_mesa.setData(Qt.ItemDataRole.UserRole, mesa_id)  # guardamos mesa_id
+            item_mesa.setData(Qt.ItemDataRole.UserRole, mesa_id)
             self.tabla_mesas.setItem(row, 0, item_mesa)
             self.tabla_mesas.setItem(row, 1, QTableWidgetItem(str(len(pedidos_mesa))))
             self.tabla_mesas.setItem(row, 2, QTableWidgetItem(fecha_ultimo))
@@ -188,8 +177,6 @@ class PagoView(QWidget):
 
         self.lbl_total.setText(f"Total: ${total:.2f}")
 
-    # ── Helpers ──
-
     def _mesa_id_seleccionada(self):
         fila = self.tabla_mesas.currentRow()
         if fila < 0:
@@ -198,8 +185,6 @@ class PagoView(QWidget):
         if not item:
             return None
         return item.data(Qt.ItemDataRole.UserRole)
-
-    # ── Pago ──
 
     def _registrar_pago(self):
         mesa_id = self._mesa_id_seleccionada()
@@ -212,7 +197,6 @@ class PagoView(QWidget):
             QMessageBox.warning(self, "Aviso", "No hay pedidos listos para esta mesa.")
             return
 
-        # Verificar que ninguno ya tenga factura
         ya_facturados = [p for p in pedidos_mesa if obtener_factura_por_pedido(p.id)]
         if ya_facturados:
             QMessageBox.information(self, "Info",
@@ -237,7 +221,6 @@ class PagoView(QWidget):
         try:
             fecha_pago = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            # Recolectar todos los items de todos los pedidos
             todos_items_con_platos = []
             for pedido in pedidos_mesa:
                 items = obtener_items_pedido(pedido.id)
@@ -246,16 +229,13 @@ class PagoView(QWidget):
                     if plato:
                         todos_items_con_platos.append((plato, item.cantidad))
 
-            # Crear una factura por el total (asociada al primer pedido)
             pedido_principal = pedidos_mesa[0]
             crear_factura(pedido_principal.id, total, fecha_pago)
             factura = obtener_factura_por_pedido(pedido_principal.id)
 
-            # Cerrar todos los pedidos de la mesa
             for pedido in pedidos_mesa:
                 actualizar_estado_pedido(pedido.id, "cerrado")
 
-            # Generar UN solo PDF con todos los items
             ruta_pdf = generar_factura_pdf(
                 factura, pedido_principal,
                 todos_items_con_platos, mesa

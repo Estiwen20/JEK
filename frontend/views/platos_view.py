@@ -13,7 +13,6 @@ from backend.repositories.plato_repo import (
     actualizar_plato, eliminar_plato
 )
 
-# ── Categorías con icono y color de acento ──
 CATEGORIAS = {
     "Asados":       {"icono": "🔥", "color": "#f38ba8"},
     "Hamburguesas": {"icono": "🍔", "color": "#fab387"},
@@ -26,7 +25,6 @@ CATEGORIAS = {
     "Otros":        {"icono": "🍽️", "color": "#a6adc8"},
 }
 
-# Iconos disponibles para elegir al crear/editar plato
 ICONOS_DISPONIBLES = [
     "🍔","🌭","🔥","🥩","🍗","🍕","🌮","🌯","🥪","🍱",
     "🥗","🍲","🍜","🍝","🍛","🍣","🦐","🥚","🧆","🧇",
@@ -38,14 +36,13 @@ ICONOS_DISPONIBLES = [
 
 
 class PlatoCard(QFrame):
-    """Tarjeta individual de un plato en la carta."""
-    def __init__(self, plato, on_edit, on_delete, on_toggle, parent=None):
+    def __init__(self, plato, on_edit, on_delete, on_toggle, es_admin=True, parent=None):
         super().__init__(parent)
         self.plato = plato
         self._pos_orig = None
         self.setFixedSize(200, 175)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._build_ui(on_edit, on_delete, on_toggle)
+        self._build_ui(on_edit, on_delete, on_toggle, es_admin)
         self._apply_shadow()
 
     def _apply_shadow(self):
@@ -55,13 +52,12 @@ class PlatoCard(QFrame):
         s.setColor(QColor(0, 0, 0, 100))
         self.setGraphicsEffect(s)
 
-    def _build_ui(self, on_edit, on_delete, on_toggle):
+    def _build_ui(self, on_edit, on_delete, on_toggle, es_admin):
         cat = CATEGORIAS.get(self.plato.categoria, CATEGORIAS["Otros"])
         color_acento = cat["color"]
         disponible = self.plato.disponible
 
         fondo = "#1e2535" if disponible else "#1a1a1a"
-        opacidad = "1.0" if disponible else "0.5"
 
         self.setStyleSheet(f"""
             QFrame {{
@@ -75,17 +71,14 @@ class PlatoCard(QFrame):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # ── Cabecera de color ──
         header = QFrame()
         header.setFixedHeight(52)
         header.setStyleSheet(f"""
             QFrame {{
                 background-color: {color_acento}22;
-                border-top-left-radius: 14px;
-                border-top-right-radius: 14px;
+                border-top-left-radius: 14px; border-top-right-radius: 14px;
                 border-bottom: 1px solid {color_acento}44;
-                border-left: none;
-                border-right: none;
+                border-left: none; border-right: none;
             }}
         """)
         header_layout = QHBoxLayout(header)
@@ -103,7 +96,6 @@ class PlatoCard(QFrame):
         header_layout.addWidget(lbl_cat)
         root.addWidget(header)
 
-        # ── Cuerpo ──
         body = QWidget()
         body.setStyleSheet("background: transparent;")
         body_layout = QVBoxLayout(body)
@@ -138,17 +130,15 @@ class PlatoCard(QFrame):
         precio_row.addStretch()
         precio_row.addWidget(badge)
         body_layout.addLayout(precio_row)
-
         root.addWidget(body)
 
-        # ── Botones de acción ──
+        # ── Botones de acción según rol ──
         actions = QFrame()
         actions.setStyleSheet(f"""
             QFrame {{
                 background-color: transparent;
                 border-top: 1px solid #2a2a3e;
-                border-bottom-left-radius: 14px;
-                border-bottom-right-radius: 14px;
+                border-bottom-left-radius: 14px; border-bottom-right-radius: 14px;
                 border-left: none; border-right: none;
             }}
         """)
@@ -165,28 +155,41 @@ class PlatoCard(QFrame):
             QPushButton:hover { background-color: #313244; }
         """
 
-        btn_edit = QPushButton("✏️")
-        btn_edit.setToolTip("Editar")
-        btn_edit.setFixedSize(28, 26)
-        btn_edit.setStyleSheet(btn_style)
-        btn_edit.clicked.connect(on_edit)
+        if es_admin:
+            # Admin: editar, eliminar y toggle disponibilidad
+            btn_edit = QPushButton("✏️")
+            btn_edit.setToolTip("Editar")
+            btn_edit.setFixedSize(28, 26)
+            btn_edit.setStyleSheet(btn_style)
+            btn_edit.clicked.connect(on_edit)
 
-        btn_del = QPushButton("🗑️")
-        btn_del.setToolTip("Eliminar")
-        btn_del.setFixedSize(28, 26)
-        btn_del.setStyleSheet(btn_style)
-        btn_del.clicked.connect(on_delete)
+            btn_del = QPushButton("🗑️")
+            btn_del.setToolTip("Eliminar")
+            btn_del.setFixedSize(28, 26)
+            btn_del.setStyleSheet(btn_style)
+            btn_del.clicked.connect(on_delete)
 
-        btn_toggle = QPushButton("👁️" if disponible else "🚫")
-        btn_toggle.setToolTip("Cambiar disponibilidad")
-        btn_toggle.setFixedSize(28, 26)
-        btn_toggle.setStyleSheet(btn_style)
-        btn_toggle.clicked.connect(on_toggle)
+            btn_toggle = QPushButton("👁️" if disponible else "🚫")
+            btn_toggle.setToolTip("Cambiar disponibilidad")
+            btn_toggle.setFixedSize(28, 26)
+            btn_toggle.setStyleSheet(btn_style)
+            btn_toggle.clicked.connect(on_toggle)
 
-        act_layout.addWidget(btn_edit)
-        act_layout.addWidget(btn_del)
-        act_layout.addStretch()
-        act_layout.addWidget(btn_toggle)
+            act_layout.addWidget(btn_edit)
+            act_layout.addWidget(btn_del)
+            act_layout.addStretch()
+            act_layout.addWidget(btn_toggle)
+        else:
+            # Mesero: solo puede cambiar disponibilidad
+            btn_toggle = QPushButton("👁️" if disponible else "🚫")
+            btn_toggle.setToolTip("Cambiar disponibilidad")
+            btn_toggle.setFixedSize(28, 26)
+            btn_toggle.setStyleSheet(btn_style)
+            btn_toggle.clicked.connect(on_toggle)
+
+            act_layout.addStretch()
+            act_layout.addWidget(btn_toggle)
+
         root.addWidget(actions)
 
     def showEvent(self, event):
@@ -226,26 +229,26 @@ class PlatoCard(QFrame):
 
 
 class PlatosView(QWidget):
-    def __init__(self):
+    def __init__(self, usuario=None):
         super().__init__()
+        self.usuario = usuario
         self._plato_seleccionado = None
         self._build_ui()
         self._cargar_platos()
+
+    def _es_admin(self):
+        return self.usuario is not None and self.usuario.es_admin()
 
     def _build_ui(self):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # ── Barra superior ──
         topbar = QFrame()
         topbar.setObjectName("topbar")
         topbar.setFixedHeight(64)
         topbar.setStyleSheet("""
-            #topbar {
-                background-color: #181825;
-                border-bottom: 1px solid #313244;
-            }
+            #topbar { background-color: #181825; border-bottom: 1px solid #313244; }
         """)
         top_layout = QHBoxLayout(topbar)
         top_layout.setContentsMargins(24, 0, 24, 0)
@@ -267,28 +270,30 @@ class PlatosView(QWidget):
         """)
         self.input_buscar.textChanged.connect(self._filtrar)
 
-        btn_nuevo = QPushButton("＋  Nuevo Plato")
-        btn_nuevo.setFixedHeight(36)
-        btn_nuevo.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_nuevo.setStyleSheet("""
-            QPushButton {
-                background-color: #cba6f7; color: #1e1e2e;
-                font-weight: bold; font-size: 13px;
-                border-radius: 8px; border: none; padding: 0 16px;
-            }
-            QPushButton:hover { background-color: #b48ef0; }
-            QPushButton:pressed { background-color: #9a73e8; }
-        """)
-        btn_nuevo.clicked.connect(self._abrir_dialog_crear)
-
         top_layout.addWidget(titulo)
         top_layout.addStretch()
         top_layout.addWidget(self.input_buscar)
-        top_layout.addSpacing(12)
-        top_layout.addWidget(btn_nuevo)
+
+        # ── Solo el admin puede crear platos ──
+        if self._es_admin():
+            btn_nuevo = QPushButton("＋  Nuevo Plato")
+            btn_nuevo.setFixedHeight(36)
+            btn_nuevo.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_nuevo.setStyleSheet("""
+                QPushButton {
+                    background-color: #cba6f7; color: #1e1e2e;
+                    font-weight: bold; font-size: 13px;
+                    border-radius: 8px; border: none; padding: 0 16px;
+                }
+                QPushButton:hover { background-color: #b48ef0; }
+                QPushButton:pressed { background-color: #9a73e8; }
+            """)
+            btn_nuevo.clicked.connect(self._abrir_dialog_crear)
+            top_layout.addSpacing(12)
+            top_layout.addWidget(btn_nuevo)
+
         root.addWidget(topbar)
 
-        # ── Tabs de categorías ──
         self.tab_bar = QFrame()
         self.tab_bar.setStyleSheet("background-color: #181825; border-bottom: 1px solid #2a2a3e;")
         self.tab_bar.setFixedHeight(48)
@@ -331,7 +336,6 @@ class PlatosView(QWidget):
         self._cat_activa = "Todas"
         root.addWidget(self.tab_bar)
 
-        # ── Área de scroll con la carta ──
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setStyleSheet("""
@@ -349,14 +353,11 @@ class PlatosView(QWidget):
         self.scroll.setWidget(self.carta_widget)
         root.addWidget(self.scroll)
 
-    # ── Carga ──
-
     def _cargar_platos(self):
         self.platos = obtener_platos()
         self._renderizar(self.platos)
 
     def _renderizar(self, platos):
-        # Limpiar layout
         while self.carta_layout.count():
             item = self.carta_layout.takeAt(0)
             if item.widget():
@@ -370,7 +371,6 @@ class PlatosView(QWidget):
             self.carta_layout.addStretch()
             return
 
-        # Agrupar por categoría manteniendo orden de CATEGORIAS
         grupos = {}
         for plato in platos:
             cat = plato.categoria if plato.categoria in CATEGORIAS else "Otros"
@@ -383,7 +383,6 @@ class PlatosView(QWidget):
             lista = grupos[cat]
             info = CATEGORIAS[cat]
 
-            # ── Encabezado de sección ──
             sec_header = QWidget()
             sec_header.setStyleSheet("background: transparent;")
             sh_layout = QHBoxLayout(sec_header)
@@ -394,10 +393,7 @@ class PlatosView(QWidget):
             lbl_icono_sec.setStyleSheet("font-size: 22px; background: transparent;")
 
             lbl_cat_sec = QLabel(cat)
-            lbl_cat_sec.setStyleSheet(f"""
-                font-size: 18px; font-weight: bold;
-                color: {info['color']}; background: transparent;
-            """)
+            lbl_cat_sec.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {info['color']}; background: transparent;")
 
             linea = QFrame()
             linea.setFrameShape(QFrame.Shape.HLine)
@@ -413,7 +409,6 @@ class PlatosView(QWidget):
             sh_layout.addWidget(lbl_cnt)
             self.carta_layout.addWidget(sec_header)
 
-            # ── Grid de tarjetas ──
             grid_widget = QWidget()
             grid_widget.setStyleSheet("background: transparent;")
             grid = QGridLayout(grid_widget)
@@ -428,14 +423,13 @@ class PlatosView(QWidget):
                     on_edit=lambda _, p=plato: self._editar(p),
                     on_delete=lambda _, p=plato: self._eliminar(p),
                     on_toggle=lambda _, p=plato: self._toggle(p),
+                    es_admin=self._es_admin(),
                 )
                 grid.addWidget(card, i // cols, i % cols)
 
             self.carta_layout.addWidget(grid_widget)
 
         self.carta_layout.addStretch()
-
-    # ── Filtros ──
 
     def _filtrar(self, texto):
         cat = self._cat_activa
@@ -452,8 +446,6 @@ class PlatosView(QWidget):
             btn.setChecked(c == cat)
         self._filtrar(self.input_buscar.text())
 
-    # ── Acciones ──
-
     def _abrir_dialog_crear(self):
         dialog = PlatoDialog(self)
         if dialog.exec():
@@ -468,6 +460,8 @@ class PlatosView(QWidget):
                 QMessageBox.critical(self, "Error", f"No se pudo crear el plato:\n{e}")
 
     def _editar(self, plato):
+        if not self._es_admin():
+            return
         dialog = PlatoDialog(self, plato)
         if dialog.exec():
             datos = dialog.obtener_datos()
@@ -481,6 +475,8 @@ class PlatosView(QWidget):
                 QMessageBox.critical(self, "Error", f"No se pudo actualizar:\n{e}")
 
     def _eliminar(self, plato):
+        if not self._es_admin():
+            return
         confirmar = QMessageBox.question(
             self, "Confirmar",
             f"¿Eliminar '{plato.nombre}'?",
@@ -505,8 +501,6 @@ class PlatosView(QWidget):
             QMessageBox.critical(self, "Error", f"No se pudo cambiar disponibilidad:\n{e}")
 
 
-# ── Diálogo crear / editar plato ──
-
 class PlatoDialog(QDialog):
     def __init__(self, parent=None, plato=None):
         super().__init__(parent)
@@ -521,7 +515,6 @@ class PlatoDialog(QDialog):
         layout.setContentsMargins(24, 20, 24, 20)
         layout.setSpacing(12)
 
-        # Nombre
         layout.addWidget(self._label("Nombre del plato"))
         self.input_nombre = QLineEdit()
         self.input_nombre.setPlaceholderText("Ej: Bandeja Paisa")
@@ -529,7 +522,6 @@ class PlatoDialog(QDialog):
         if plato: self.input_nombre.setText(plato.nombre)
         layout.addWidget(self.input_nombre)
 
-        # Descripción
         layout.addWidget(self._label("Descripción (opcional)"))
         self.input_desc = QLineEdit()
         self.input_desc.setPlaceholderText("Ej: Con arroz, frijoles y chicharrón")
@@ -537,7 +529,6 @@ class PlatoDialog(QDialog):
         if plato: self.input_desc.setText(plato.descripcion or "")
         layout.addWidget(self.input_desc)
 
-        # Precio y categoría en fila
         fila = QHBoxLayout()
         col1 = QVBoxLayout()
         col1.addWidget(self._label("Precio"))
@@ -567,9 +558,7 @@ class PlatoDialog(QDialog):
         fila.addLayout(col2)
         layout.addLayout(fila)
 
-        # Selector de icono
         layout.addWidget(self._label("Icono del plato"))
-
         icono_scroll = QScrollArea()
         icono_scroll.setFixedHeight(170)
         icono_scroll.setWidgetResizable(True)
@@ -597,17 +586,12 @@ class PlatoDialog(QDialog):
             b.setToolTip(em)
             b.setStyleSheet("""
                 QPushButton {
-                    background: transparent;
-                    border: 1px solid transparent;
-                    border-radius: 6px;
-                    font-size: 22px;
-                    padding: 0;
+                    background: transparent; border: 1px solid transparent;
+                    border-radius: 6px; font-size: 22px; padding: 0;
                 }
                 QPushButton:hover { background: #3a3a4e; }
                 QPushButton:checked {
-                    background: #313244;
-                    border: 2px solid #cba6f7;
-                    border-radius: 6px;
+                    background: #313244; border: 2px solid #cba6f7; border-radius: 6px;
                 }
             """)
             b.clicked.connect(lambda _, e=em: self._sel_icono(e))
@@ -617,7 +601,6 @@ class PlatoDialog(QDialog):
         icono_scroll.setWidget(icono_inner)
         layout.addWidget(icono_scroll)
 
-        # Disponible + botones
         fila2 = QHBoxLayout()
         self.chk_disp = QCheckBox("  Disponible")
         self.chk_disp.setChecked(plato.disponible if plato else True)

@@ -21,7 +21,6 @@ from backend.repositories.plato_repo import obtener_platos, obtener_plato_por_id
 
 
 def _tocar_campana():
-    """Reproduce sonido de campana usando winsound en Windows."""
     def _play():
         try:
             if sys.platform == "win32":
@@ -36,30 +35,34 @@ def _tocar_campana():
 
 
 class PedidosView(QWidget):
-    def __init__(self):
+    def __init__(self, usuario=None):
         super().__init__()
+        self.usuario = usuario
         self._build_ui()
         self._cargar_pedidos()
+
+    def _es_admin(self):
+        return self.usuario is not None and self.usuario.es_admin()
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
 
-        # ── Encabezado ──
         header = QHBoxLayout()
         titulo = QLabel("Gestión de Pedidos")
         titulo.setStyleSheet("font-size: 20px; font-weight: bold; color: #cba6f7;")
+        header.addWidget(titulo)
+        header.addStretch()
+
+        # Tanto admin como mesero pueden crear pedidos
         btn_nuevo = QPushButton("+ Nuevo Pedido")
         btn_nuevo.setFixedWidth(150)
         btn_nuevo.setStyleSheet("background-color: #cba6f7; color: #1e1e2e; font-weight: bold; border-radius: 6px; padding: 7px;")
         btn_nuevo.clicked.connect(self._abrir_dialog_crear)
-        header.addWidget(titulo)
-        header.addStretch()
         header.addWidget(btn_nuevo)
         layout.addLayout(header)
 
-        # ── Filtros ──
         filtros = QHBoxLayout()
         self.filtro_estado = QComboBox()
         self.filtro_estado.addItems(["Todos", "abierto", "en preparación", "listo", "cerrado"])
@@ -79,10 +82,8 @@ class PedidosView(QWidget):
         filtros.addStretch()
         layout.addLayout(filtros)
 
-        # ── Splitter: tabla izq | detalle der ──
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # Tabla pedidos — 5 columnas, la última es la campana
         self.tabla = QTableWidget()
         self.tabla.setColumnCount(5)
         self.tabla.setHorizontalHeaderLabels(["ID", "Mesa", "Estado", "Fecha", "🔔"])
@@ -95,7 +96,6 @@ class PedidosView(QWidget):
         self.tabla.clicked.connect(self._mostrar_detalle)
         splitter.addWidget(self.tabla)
 
-        # Panel detalle
         detalle_widget = QWidget()
         detalle_layout = QVBoxLayout(detalle_widget)
         detalle_layout.setContentsMargins(12, 0, 0, 0)
@@ -120,26 +120,30 @@ class PedidosView(QWidget):
         splitter.setSizes([500, 350])
         layout.addWidget(splitter)
 
-        # ── Botones de acción ──
+        # ── Botones de acción según rol ──
         acciones = QHBoxLayout()
+        acciones.addStretch()
+
+        # Mesero y admin pueden agregar/quitar platos y cambiar estado
         btn_agregar_plato = QPushButton("➕  Agregar plato")
         btn_quitar_plato = QPushButton("➖  Quitar plato")
         btn_estado = QPushButton("🔄  Cambiar estado")
-        btn_eliminar = QPushButton("🗑  Eliminar pedido")
 
         btn_agregar_plato.clicked.connect(self._agregar_plato)
         btn_quitar_plato.clicked.connect(self._quitar_plato)
         btn_estado.clicked.connect(self._cambiar_estado)
-        btn_eliminar.clicked.connect(self._eliminar_pedido)
 
-        acciones.addStretch()
         acciones.addWidget(btn_agregar_plato)
         acciones.addWidget(btn_quitar_plato)
         acciones.addWidget(btn_estado)
-        acciones.addWidget(btn_eliminar)
-        layout.addLayout(acciones)
 
-    # ── Carga y render ──
+        # ── Solo el admin puede eliminar pedidos ──
+        if self._es_admin():
+            btn_eliminar = QPushButton("🗑  Eliminar pedido")
+            btn_eliminar.clicked.connect(self._eliminar_pedido)
+            acciones.addWidget(btn_eliminar)
+
+        layout.addLayout(acciones)
 
     def _cargar_pedidos(self):
         estado = self.filtro_estado.currentText()
@@ -168,8 +172,6 @@ class PedidosView(QWidget):
             self.tabla.setItem(row, 2, estado_item)
             self.tabla.setItem(row, 3, QTableWidgetItem(pedido.fecha))
 
-            # ── Botón campana ──
-            # Solo se muestra si el pedido NO está listo ni cerrado
             btn_campana = QPushButton("🔔")
             btn_campana.setToolTip("Marcar como listo y pasar a facturación")
             btn_campana.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -177,31 +179,13 @@ class PedidosView(QWidget):
             if pedido.estado in ("listo", "cerrado"):
                 btn_campana.setEnabled(False)
                 btn_campana.setStyleSheet("""
-                    QPushButton {
-                        background: transparent;
-                        border: none;
-                        font-size: 18px;
-                        color: #45475a;
-                    }
+                    QPushButton { background: transparent; border: none; font-size: 18px; color: #45475a; }
                 """)
             else:
                 btn_campana.setStyleSheet("""
-                    QPushButton {
-                        background: transparent;
-                        border: none;
-                        font-size: 18px;
-                        color: #f9e2af;
-                    }
-                    QPushButton:hover {
-                        background-color: #2a2a1e;
-                        border-radius: 6px;
-                        color: #f9e2af;
-                    }
-                    QPushButton:pressed {
-                        color: #a6e3a1;
-                        background-color: #1e3a2f;
-                        border-radius: 6px;
-                    }
+                    QPushButton { background: transparent; border: none; font-size: 18px; color: #f9e2af; }
+                    QPushButton:hover { background-color: #2a2a1e; border-radius: 6px; color: #f9e2af; }
+                    QPushButton:pressed { color: #a6e3a1; background-color: #1e3a2f; border-radius: 6px; }
                 """)
                 pedido_id = pedido.id
                 btn_campana.clicked.connect(
@@ -215,31 +199,20 @@ class PedidosView(QWidget):
         self.lbl_total.setText("Total: $0.00")
 
     def _marcar_listo(self, pedido_id, btn, row):
-        """Toca la campana, marca el pedido como listo y recarga."""
-        # Animación visual del botón
         btn.setText("✅")
         btn.setEnabled(False)
         btn.setStyleSheet("""
             QPushButton {
-                background-color: #1e3a2f;
-                border: none;
-                font-size: 18px;
-                color: #a6e3a1;
-                border-radius: 6px;
+                background-color: #1e3a2f; border: none;
+                font-size: 18px; color: #a6e3a1; border-radius: 6px;
             }
         """)
-
-        # Reproducir campana en hilo separado
         _tocar_campana()
-
-        # Actualizar estado en BD
         try:
             actualizar_estado_pedido(pedido_id, "listo")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo marcar como listo:\n{e}")
             return
-
-        # Recargar tabla después de un pequeño delay para que se vea la animación
         QTimer.singleShot(600, self._cargar_pedidos)
 
     def _mostrar_detalle(self):
@@ -259,16 +232,12 @@ class PedidosView(QWidget):
             self.lista_items.setItem(row, 2, QTableWidgetItem(f"${subtotal:.2f}"))
         self.lbl_total.setText(f"Total: ${total:.2f}")
 
-    # ── Helpers ──
-
     def _pedido_seleccionado(self):
         fila = self.tabla.currentRow()
         if fila < 0:
             return None
         pedido_id = int(self.tabla.item(fila, 0).text())
         return next((p for p in self.pedidos if p.id == pedido_id), None)
-
-    # ── Acciones ──
 
     def _abrir_dialog_crear(self):
         dialog = NuevoPedidoDialog(self)
@@ -333,6 +302,10 @@ class PedidosView(QWidget):
                 QMessageBox.critical(self, "Error", f"Error al cambiar estado:\n{e}")
 
     def _eliminar_pedido(self):
+        # Protección extra por si se llama directamente
+        if not self._es_admin():
+            QMessageBox.warning(self, "Sin permiso", "Solo el administrador puede eliminar pedidos.")
+            return
         pedido = self._pedido_seleccionado()
         if not pedido:
             QMessageBox.warning(self, "Aviso", "Selecciona un pedido primero.")
@@ -348,8 +321,6 @@ class PedidosView(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Error al eliminar:\n{e}")
 
-
-# ── Diálogos ──
 
 class NuevoPedidoDialog(QDialog):
     def __init__(self, parent=None):

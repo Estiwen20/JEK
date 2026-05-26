@@ -76,7 +76,6 @@ class MainWindow(QMainWindow):
         else:
             logo.setText("🍽  Restaurante")
 
-        # Sombra suave bajo el logo
         shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(18)
         shadow.setOffset(0, 4)
@@ -86,13 +85,11 @@ class MainWindow(QMainWindow):
         logo_inner.addWidget(logo)
         sidebar_layout.addWidget(logo_container)
 
-        # Separador decorativo
         sep_top = QFrame()
         sep_top.setObjectName("sepDeco")
         sep_top.setFixedHeight(2)
         sidebar_layout.addWidget(sep_top)
 
-        # Info usuario
         user_frame = QFrame()
         user_frame.setObjectName("userFrame")
         user_layout = QVBoxLayout(user_frame)
@@ -111,7 +108,6 @@ class MainWindow(QMainWindow):
         user_layout.addWidget(lbl_rol)
         sidebar_layout.addWidget(user_frame)
 
-        # Separador
         sep = QFrame()
         sep.setFixedHeight(1)
         sep.setStyleSheet("background-color: #313244; margin: 0 12px;")
@@ -122,16 +118,22 @@ class MainWindow(QMainWindow):
         self.nav_buttons = []
         self.stack = QStackedWidget()
 
+        # ── Vistas según rol ──
+        # Admin: acceso total
+        # Mesero: ve Mesas (sin eliminar), Platos (solo lectura), Pedidos y Pagos
         if self.usuario.es_admin():
             nav_items = [
-                ("🪑  Mesas",   MesasView()),
-                ("🍲  Platos",  PlatosView()),
-                ("📋  Pedidos", PedidosView()),
-                ("💳  Pagos",   PagoView()),
+                ("🪑  Mesas",   MesasView(self.usuario)),
+                ("🍲  Platos",  PlatosView(self.usuario)),
+                ("📋  Pedidos", PedidosView(self.usuario)),
+                ("💳  Pagos",   PagoView(self.usuario)),
             ]
         else:
             nav_items = [
-                ("📋  Pedidos", PedidosView()),
+                ("🪑  Mesas",   MesasView(self.usuario)),
+                ("🍲  Platos",  PlatosView(self.usuario)),
+                ("📋  Pedidos", PedidosView(self.usuario)),
+                ("💳  Pagos",   PagoView(self.usuario)),
             ]
 
         for i, (label, vista) in enumerate(nav_items):
@@ -143,7 +145,6 @@ class MainWindow(QMainWindow):
 
         sidebar_layout.addStretch()
 
-        # Separador antes de logout
         sep2 = QFrame()
         sep2.setFixedHeight(1)
         sep2.setStyleSheet("background-color: #313244;")
@@ -167,7 +168,6 @@ class MainWindow(QMainWindow):
         self._navigate(0)
 
     def _navigate(self, index):
-        # Animación fade suave al cambiar de vista
         current = self.stack.currentWidget()
         self.stack.setCurrentIndex(index)
         new = self.stack.currentWidget()
@@ -226,18 +226,9 @@ class MainWindow(QMainWindow):
                 margin: 0 24px;
                 border: none;
             }
-            #userFrame {
-                background: transparent;
-            }
-            #lblUser {
-                font-size: 12px;
-                color: #cdd6f4;
-                font-weight: bold;
-            }
-            #lblRol {
-                font-size: 11px;
-                color: #a6adc8;
-            }
+            #userFrame { background: transparent; }
+            #lblUser { font-size: 12px; color: #cdd6f4; font-weight: bold; }
+            #lblRol { font-size: 11px; color: #a6adc8; }
             #navBtn {
                 background: transparent;
                 color: #a6adc8;
@@ -268,14 +259,8 @@ class MainWindow(QMainWindow):
                 text-align: left;
                 padding-left: 20px;
             }
-            #btnLogout:hover {
-                background-color: #2e1e26;
-                color: #ff9ab2;
-            }
-            #version {
-                color: #45475a;
-                font-size: 10px;
-            }
+            #btnLogout:hover { background-color: #2e1e26; color: #ff9ab2; }
+            #version { color: #45475a; font-size: 10px; }
             QPushButton {
                 background-color: #313244;
                 color: #cdd6f4;
@@ -312,14 +297,10 @@ class MainWindow(QMainWindow):
             QLabel { color: #cdd6f4; }
             QMessageBox { background-color: #1e1e2e; }
             QScrollBar:vertical {
-                background: #181825;
-                width: 6px;
-                border-radius: 3px;
+                background: #181825; width: 6px; border-radius: 3px;
             }
             QScrollBar::handle:vertical {
-                background: #45475a;
-                border-radius: 3px;
-                min-height: 20px;
+                background: #45475a; border-radius: 3px; min-height: 20px;
             }
             QScrollBar::handle:vertical:hover { background: #cba6f7; }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }

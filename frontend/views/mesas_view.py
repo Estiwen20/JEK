@@ -117,11 +117,9 @@ class MesaCard(QFrame):
 
     def showEvent(self, event):
         super().showEvent(event)
-        # Guardar posición original una sola vez al mostrarse
         self._pos_original = None
 
     def _get_pos_original(self):
-        # Captura la posición solo cuando está en reposo (sin animación activa)
         if self._pos_original is None:
             self._pos_original = self.pos()
         return self._pos_original
@@ -131,7 +129,6 @@ class MesaCard(QFrame):
         if not self.seleccionada:
             self._update_style(hover=True)
             origen = self._get_pos_original()
-            # Detener animación anterior si existe
             if hasattr(self, '_anim_up') and self._anim_up.state() == QPropertyAnimation.State.Running:
                 self._anim_up.stop()
             if hasattr(self, '_anim_down') and self._anim_down.state() == QPropertyAnimation.State.Running:
@@ -150,7 +147,6 @@ class MesaCard(QFrame):
         if not self.seleccionada:
             self._update_style(hover=False)
             origen = self._get_pos_original()
-            # Detener animación anterior si existe
             if hasattr(self, '_anim_up') and self._anim_up.state() == QPropertyAnimation.State.Running:
                 self._anim_up.stop()
             if hasattr(self, '_anim_down') and self._anim_down.state() == QPropertyAnimation.State.Running:
@@ -212,12 +208,8 @@ class PanelPedido(QWidget):
         btn_cerrar.setFixedSize(40, 40)
         btn_cerrar.setStyleSheet("""
             QPushButton {
-                background-color: #f38ba8;
-                color: #ffffff;
-                border: none;
-                font-size: 16px;
-                font-weight: bold;
-                border-radius: 6px;
+                background-color: #f38ba8; color: #ffffff;
+                border: none; font-size: 16px; font-weight: bold; border-radius: 6px;
             }
             QPushButton:hover { background-color: #e06c8a; }
         """)
@@ -258,17 +250,12 @@ class PanelPedido(QWidget):
         self.tabla_pedido.setMaximumHeight(150)
         self.tabla_pedido.setStyleSheet("""
             QTableWidget {
-                background-color: #252535;
-                border: 1px solid #313244;
-                border-radius: 8px;
-                gridline-color: #313244;
+                background-color: #252535; border: 1px solid #313244;
+                border-radius: 8px; gridline-color: #313244;
             }
             QHeaderView::section {
-                background-color: #313244;
-                color: #cba6f7;
-                border: none;
-                padding: 4px;
-                font-size: 11px;
+                background-color: #313244; color: #cba6f7;
+                border: none; padding: 4px; font-size: 11px;
             }
         """)
         body_layout.addWidget(self.tabla_pedido)
@@ -291,12 +278,8 @@ class PanelPedido(QWidget):
         self.btn_confirmar.setFixedHeight(40)
         self.btn_confirmar.setStyleSheet("""
             QPushButton {
-                background-color: #a6e3a1;
-                color: #1e1e2e;
-                font-weight: bold;
-                font-size: 13px;
-                border-radius: 8px;
-                border: none;
+                background-color: #a6e3a1; color: #1e1e2e;
+                font-weight: bold; font-size: 13px; border-radius: 8px; border: none;
             }
             QPushButton:hover { background-color: #94d4a0; }
             QPushButton:pressed { background-color: #7ec48a; }
@@ -328,11 +311,7 @@ class PanelPedido(QWidget):
 
             fila = QWidget()
             fila.setStyleSheet("""
-                QWidget {
-                    background-color: #252535;
-                    border-radius: 8px;
-                    border: 1px solid #313244;
-                }
+                QWidget { background-color: #252535; border-radius: 8px; border: 1px solid #313244; }
                 QWidget:hover { border: 1px solid #cba6f7; }
             """)
             fila_layout = QHBoxLayout(fila)
@@ -452,13 +431,17 @@ class PanelPedido(QWidget):
 
 
 class MesasView(QWidget):
-    def __init__(self):
+    def __init__(self, usuario=None):
         super().__init__()
+        self.usuario = usuario
         self.card_seleccionada = None
         self.cards = []
         self.panel_visible = False
         self._build_ui()
         self._cargar_mesas()
+
+    def _es_admin(self):
+        return self.usuario is not None and self.usuario.es_admin()
 
     def _build_ui(self):
         self.main_layout = QHBoxLayout(self)
@@ -474,24 +457,24 @@ class MesasView(QWidget):
         header = QHBoxLayout()
         titulo = QLabel("Tablero de Mesas")
         titulo.setStyleSheet("font-size: 22px; font-weight: bold; color: #cba6f7;")
-        self.btn_nueva = QPushButton("+ Nueva Mesa")
-        self.btn_nueva.setFixedWidth(140)
-        self.btn_nueva.setStyleSheet("""
-            QPushButton {
-                background-color: #cba6f7;
-                color: #1e1e2e;
-                font-weight: bold;
-                border-radius: 8px;
-                padding: 7px;
-                border: none;
-            }
-            QPushButton:hover { background-color: #b48ef0; }
-            QPushButton:pressed { background-color: #9a73e8; }
-        """)
-        self.btn_nueva.clicked.connect(self._abrir_dialog_crear)
         header.addWidget(titulo)
         header.addStretch()
-        header.addWidget(self.btn_nueva)
+
+        # ── Solo el admin puede crear mesas ──
+        if self._es_admin():
+            self.btn_nueva = QPushButton("+ Nueva Mesa")
+            self.btn_nueva.setFixedWidth(140)
+            self.btn_nueva.setStyleSheet("""
+                QPushButton {
+                    background-color: #cba6f7; color: #1e1e2e;
+                    font-weight: bold; border-radius: 8px; padding: 7px; border: none;
+                }
+                QPushButton:hover { background-color: #b48ef0; }
+                QPushButton:pressed { background-color: #9a73e8; }
+            """)
+            self.btn_nueva.clicked.connect(self._abrir_dialog_crear)
+            header.addWidget(self.btn_nueva)
+
         layout.addLayout(header)
 
         leyenda = QHBoxLayout()
@@ -506,7 +489,12 @@ class MesasView(QWidget):
         leyenda.addStretch()
         layout.addLayout(leyenda)
 
-        lbl_hint = QLabel("💡 Doble clic sobre una mesa para editarla")
+        # ── Hint según rol ──
+        if self._es_admin():
+            hint_texto = "💡 Doble clic sobre una mesa para editarla"
+        else:
+            hint_texto = "💡 Selecciona una mesa y usa 'Tomar Pedido'"
+        lbl_hint = QLabel(hint_texto)
         lbl_hint.setStyleSheet("font-size: 11px; color: #585b70;")
         layout.addWidget(lbl_hint)
 
@@ -522,24 +510,26 @@ class MesasView(QWidget):
         layout.addWidget(scroll)
 
         acciones = QHBoxLayout()
-        btn_eliminar = QPushButton("🗑  Eliminar Mesa")
-        btn_eliminar.clicked.connect(self._eliminar_mesa)
+
+        # ── Solo el admin puede eliminar mesas ──
+        if self._es_admin():
+            self.btn_eliminar = QPushButton("🗑  Eliminar Mesa")
+            self.btn_eliminar.clicked.connect(self._eliminar_mesa)
+            acciones.addStretch()
+            acciones.addWidget(self.btn_eliminar)
+        else:
+            acciones.addStretch()
+
         self.btn_tomar = QPushButton("📋  Tomar Pedido")
         self.btn_tomar.setStyleSheet("""
             QPushButton {
-                background-color: #89b4fa;
-                color: #1e1e2e;
-                font-weight: bold;
-                border-radius: 8px;
-                padding: 7px 16px;
-                border: none;
+                background-color: #89b4fa; color: #1e1e2e;
+                font-weight: bold; border-radius: 8px; padding: 7px 16px; border: none;
             }
             QPushButton:hover { background-color: #74a8f5; }
             QPushButton:pressed { background-color: #5a94e8; }
         """)
         self.btn_tomar.clicked.connect(self._abrir_panel)
-        acciones.addStretch()
-        acciones.addWidget(btn_eliminar)
         acciones.addWidget(self.btn_tomar)
         layout.addLayout(acciones)
 
@@ -569,6 +559,9 @@ class MesasView(QWidget):
         card.set_seleccionada(True)
 
     def _doble_clic_mesa(self, card):
+        # ── Solo el admin puede editar mesas con doble clic ──
+        if not self._es_admin():
+            return
         self._seleccionar_card(card)
         mesa = card.mesa
         dialog = MesaDialog(self, {
