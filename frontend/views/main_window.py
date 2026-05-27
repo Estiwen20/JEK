@@ -163,8 +163,8 @@ class MainWindow(QMainWindow):
         btn_logout.clicked.connect(self._logout)
         sidebar_layout.addWidget(btn_logout)
 
-        version = QLabel("v1.0.0")
-        version.setObjectName("version")
+        version = QLabel("v2.0.0")
+        version.setObjectName("mejora visual y dashboard")
         version.setAlignment(Qt.AlignmentFlag.AlignCenter)
         version.setFixedHeight(30)
         sidebar_layout.addWidget(version)
