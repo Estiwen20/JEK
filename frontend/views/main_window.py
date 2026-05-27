@@ -1,19 +1,20 @@
 import os
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout,
-    QVBoxLayout, QPushButton, QLabel, QStackedWidget, QMessageBox, QFrame, QGraphicsDropShadowEffect
+    QVBoxLayout, QPushButton, QLabel, QStackedWidget,
+    QMessageBox, QFrame, QGraphicsDropShadowEffect
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QPropertyAnimation, QEasingCurve, QSize
-from PyQt6.QtGui import QFont, QPixmap, QColor
+from PyQt6.QtCore import Qt, pyqtSignal, QPropertyAnimation, QEasingCurve
+from PyQt6.QtGui import QPixmap, QColor
 
 from frontend.views.mesas_view import MesasView
 from frontend.views.platos_view import PlatosView
 from frontend.views.pedidos_view import PedidosView
 from frontend.views.pago_view import PagoView
+from frontend.views.dashboard_view import DashboardView
 
 
 class AnimatedNavBtn(QPushButton):
-    """Botón de navegación con animación de highlight al activarse."""
     def __init__(self, label, parent=None):
         super().__init__(label, parent)
         self.setObjectName("navBtn")
@@ -32,7 +33,9 @@ class MainWindow(QMainWindow):
     def __init__(self, usuario):
         super().__init__()
         self.usuario = usuario
-        self.setWindowTitle(f"Restaurante — {usuario.nombre} ({usuario.rol.capitalize()})")
+        self.setWindowTitle(
+            f"Restaurante — {usuario.nombre} ({usuario.rol.capitalize()})"
+        )
         self.setMinimumSize(1100, 680)
         self._build_ui()
         self._apply_styles()
@@ -52,7 +55,7 @@ class MainWindow(QMainWindow):
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
         sidebar_layout.setSpacing(0)
 
-        # ── Logo con margen elegante ──
+        # ── Logo ──
         logo_container = QFrame()
         logo_container.setObjectName("logoContainer")
         logo_container.setFixedHeight(190)
@@ -64,8 +67,10 @@ class MainWindow(QMainWindow):
         logo.setObjectName("logo")
         logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         logo.setScaledContents(False)
-        logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 "..", "..", "assets", "logo.png")
+        logo_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "..", "..", "assets", "logo.png"
+        )
         if os.path.exists(logo_path):
             pixmap = QPixmap(logo_path).scaled(
                 150, 150,
@@ -90,6 +95,7 @@ class MainWindow(QMainWindow):
         sep_top.setFixedHeight(2)
         sidebar_layout.addWidget(sep_top)
 
+        # ── Usuario ──
         user_frame = QFrame()
         user_frame.setObjectName("userFrame")
         user_layout = QVBoxLayout(user_frame)
@@ -100,7 +106,9 @@ class MainWindow(QMainWindow):
         lbl_user.setObjectName("lblUser")
         lbl_user.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        lbl_rol = QLabel(f"{'🔑 Administrador' if self.usuario.es_admin() else '🧑‍🍳 Mesero'}")
+        lbl_rol = QLabel(
+            f"{'🔑 Administrador' if self.usuario.es_admin() else '🧑‍🍳 Mesero'}"
+        )
         lbl_rol.setObjectName("lblRol")
         lbl_rol.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -119,21 +127,20 @@ class MainWindow(QMainWindow):
         self.stack = QStackedWidget()
 
         # ── Vistas según rol ──
-        # Admin: acceso total
-        # Mesero: ve Mesas (sin eliminar), Platos (solo lectura), Pedidos y Pagos
         if self.usuario.es_admin():
             nav_items = [
-                ("🪑  Mesas",   MesasView(self.usuario)),
-                ("🍲  Platos",  PlatosView(self.usuario)),
-                ("📋  Pedidos", PedidosView(self.usuario)),
-                ("💳  Pagos",   PagoView(self.usuario)),
+                ("📊  Dashboard", DashboardView()),
+                ("🪑  Mesas",     MesasView(self.usuario)),
+                ("🍲  Platos",    PlatosView(self.usuario)),
+                ("📋  Pedidos",   PedidosView(self.usuario)),
+                ("💳  Pagos",     PagoView(self.usuario)),
             ]
         else:
             nav_items = [
-                ("🪑  Mesas",   MesasView(self.usuario)),
-                ("🍲  Platos",  PlatosView(self.usuario)),
-                ("📋  Pedidos", PedidosView(self.usuario)),
-                ("💳  Pagos",   PagoView(self.usuario)),
+                ("🪑  Mesas",     MesasView(self.usuario)),
+                ("🍲  Platos",    PlatosView(self.usuario)),
+                ("📋  Pedidos",   PedidosView(self.usuario)),
+                ("💳  Pagos",     PagoView(self.usuario)),
             ]
 
         for i, (label, vista) in enumerate(nav_items):
@@ -172,6 +179,7 @@ class MainWindow(QMainWindow):
         self.stack.setCurrentIndex(index)
         new = self.stack.currentWidget()
 
+        # Animación fade
         if new and new != current:
             anim = QPropertyAnimation(new, b"windowOpacity")
             anim.setDuration(180)
@@ -183,6 +191,11 @@ class MainWindow(QMainWindow):
 
         for i, btn in enumerate(self.nav_buttons):
             btn.setChecked(i == index)
+
+        # ← Esto es lo que faltaba — refrescar dashboard al entrar
+        widget = self.stack.currentWidget()
+        if hasattr(widget, "refrescar"):
+            widget.refrescar()
 
     def _logout(self):
         confirmar = QMessageBox.question(
@@ -303,5 +316,6 @@ class MainWindow(QMainWindow):
                 background: #45475a; border-radius: 3px; min-height: 20px;
             }
             QScrollBar::handle:vertical:hover { background: #cba6f7; }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+            QScrollBar::add-line:vertical,
+            QScrollBar::sub-line:vertical { height: 0; }
         """)
