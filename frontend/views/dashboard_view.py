@@ -136,7 +136,6 @@ class DashboardView(QWidget):
         fecha_row = QHBoxLayout()
         fecha_row.setSpacing(8)
 
-        # Botones rápidos
         for label, dias in [("Hoy", 0), ("Ayer", 1), ("7 días", 6), ("30 días", 29)]:
             btn = QPushButton(label)
             btn.setFixedHeight(30)
@@ -155,7 +154,6 @@ class DashboardView(QWidget):
 
         fecha_row.addSpacing(16)
 
-        # Desde
         lbl_desde = QLabel("Desde:")
         lbl_desde.setStyleSheet(f"color: {MUTED}; font-size: 11px;")
         self.date_desde = QDateEdit()
@@ -171,7 +169,6 @@ class DashboardView(QWidget):
             QDateEdit:focus {{ border: 1px solid {PURPLE}; }}
         """)
 
-        # Hasta
         lbl_hasta = QLabel("Hasta:")
         lbl_hasta.setStyleSheet(f"color: {MUTED}; font-size: 11px;")
         self.date_hasta = QDateEdit()
@@ -225,20 +222,15 @@ class DashboardView(QWidget):
         self.metrics_layout.setSpacing(10)
         self.layout_main.addLayout(self.metrics_layout)
 
-        # ── Fila 1 gráficas ──
+        # ── Fila 1: lineal + barras ──
         self.row1 = QHBoxLayout()
         self.row1.setSpacing(12)
         self.layout_main.addLayout(self.row1)
 
-        # ── Fila 2 gráficas ──
+        # ── Fila 2: pastel + anillo ──
         self.row2 = QHBoxLayout()
         self.row2.setSpacing(12)
         self.layout_main.addLayout(self.row2)
-
-        # ── Comparativa hoy vs ayer ──
-        self.row3 = QHBoxLayout()
-        self.row3.setSpacing(12)
-        self.layout_main.addLayout(self.row3)
 
         # ── Tabla de facturas ──
         lbl_fact = QLabel("FACTURAS DEL PERÍODO")
@@ -333,16 +325,13 @@ class DashboardView(QWidget):
             var_color = MUTED
 
         tarjetas = [
-            ("Ventas",         f"${m['ventas']:,.0f}",                        var_txt,                GREEN),
-            ("Pedidos activos",str(m["pedidos_activos"]),                      f"{m['pedidos_listos']} listos", BLUE),
-            ("Mesas ocupadas", f"{m['mesas_ocupadas']} / {m['total_mesas']}",  "ocupación actual",     RED),
-            ("Facturas",       str(m["facturas"]),                             "en el período",        PURPLE),
+            ("Ventas",          f"${m['ventas']:,.0f}",                       var_txt,                          GREEN),
+            ("Pedidos activos", str(m["pedidos_activos"]),                     f"{m['pedidos_listos']} listos",  BLUE),
+            ("Mesas ocupadas",  f"{m['mesas_ocupadas']} / {m['total_mesas']}", "ocupación actual",               RED),
+            ("Facturas",        str(m["facturas"]),                            "en el período",                  PURPLE),
         ]
         for label, val, sub, color in tarjetas:
-            if label == "Ventas":
-                card = MetricCard(label, val, var_txt, color)
-            else:
-                card = MetricCard(label, val, sub, color)
+            card = MetricCard(label, val, sub if label != "Ventas" else var_txt, color)
             card.setFixedHeight(90)
             self.metrics_layout.addWidget(card)
 
@@ -351,11 +340,11 @@ class DashboardView(QWidget):
     def _actualizar_graficas(self):
         self._limpiar_layout(self.row1)
         self._limpiar_layout(self.row2)
-        self._limpiar_layout(self.row3)
 
+        colores = [PURPLE, BLUE, GREEN, ORANGE, RED]
         es_un_dia = self.fecha_inicio == self.fecha_fin
 
-        # ── Gráfica 1: Ventas por hora (si es un día) o por día (si es rango) ──
+        # ── Gráfica 1: LINEAL — Ventas por hora o por día ──
         fig1, ax1 = _make_figure(5, 2.4)
         if es_un_dia:
             ventas_hora = obtener_ventas_por_hora(self.fecha_inicio)
@@ -380,7 +369,6 @@ class DashboardView(QWidget):
             ax1.set_xticks(range(len(dias_labels)))
             ax1.set_xticklabels(dias_labels, rotation=45, fontsize=7)
             titulo1 = "Ventas por día"
-
         ax1.yaxis.set_major_formatter(
             matplotlib.ticker.FuncFormatter(lambda x, _: f"${x/1000:.0f}k")
         )
@@ -389,111 +377,93 @@ class DashboardView(QWidget):
         canvas1.setFixedHeight(210)
         self.row1.addWidget(ChartCard(titulo1, canvas1))
 
-        # ── Gráfica 2: Platos más pedidos ──
-        platos_data = obtener_platos_mas_pedidos(self.fecha_inicio, self.fecha_fin)
-        fig2, ax2 = _make_figure(3.5, 2.4)
-        if platos_data:
-            nombres = [p[0][:14] for p in platos_data]
-            cantidades = [p[1] for p in platos_data]
-            colores_donut = [PURPLE, BLUE, GREEN, ORANGE, RED][:len(nombres)]
-            wedges, _ = ax2.pie(
-                cantidades, colors=colores_donut,
-                wedgeprops={"width": 0.55, "edgecolor": BG_CARD, "linewidth": 2},
-                startangle=90
-            )
-            ax2.legend(
-                wedges, [f"{n} ({c})" for n, c in zip(nombres, cantidades)],
-                loc="center left", bbox_to_anchor=(0.82, 0.5),
-                fontsize=7, frameon=False, labelcolor=TEXT
-            )
-        else:
-            ax2.text(0.5, 0.5, "Sin datos", ha="center", va="center",
-                     color=MUTED, fontsize=10)
-            ax2.axis("off")
-        canvas2 = FigureCanvas(fig2)
-        canvas2.setFixedHeight(210)
-        self.row1.addWidget(ChartCard("Platos más pedidos", canvas2))
-
-        # ── Gráfica 3: Pedidos por estado ──
+        # ── Gráfica 2: BARRAS — Pedidos por estado ──
         estados_data = obtener_pedidos_por_estado()
         estados = ["abierto", "en preparación", "listo"]
         estado_labels = ["Abierto", "En prep.", "Listo"]
         estado_vals = [estados_data.get(e, 0) for e in estados]
         estado_colores = [BLUE, ORANGE, GREEN]
 
-        fig3, ax3 = _make_figure(3.5, 2.4)
-        bars = ax3.bar(estado_labels, estado_vals,
+        fig2, ax2 = _make_figure(5, 2.4)
+        bars = ax2.bar(estado_labels, estado_vals,
                        color=estado_colores, width=0.5, zorder=2)
         for bar, val in zip(bars, estado_vals):
             if val > 0:
-                ax3.text(
+                ax2.text(
                     bar.get_x() + bar.get_width() / 2,
                     bar.get_height() + 0.1,
                     str(val), ha="center", va="bottom",
                     color=TEXT, fontsize=9
                 )
-        ax3.set_ylim(0, max(estado_vals + [1]) + 2)
-        ax3.grid(axis="y", color=BORDER, linewidth=0.5, zorder=0)
-        ax3.set_axisbelow(True)
-        canvas3 = FigureCanvas(fig3)
-        canvas3.setFixedHeight(210)
-        self.row2.addWidget(ChartCard("Pedidos por estado", canvas3))
+        ax2.set_ylim(0, max(estado_vals + [1]) + 2)
+        ax2.grid(axis="y", color=BORDER, linewidth=0.5, zorder=0)
+        ax2.set_axisbelow(True)
+        canvas2 = FigureCanvas(fig2)
+        canvas2.setFixedHeight(210)
+        self.row1.addWidget(ChartCard("Pedidos por estado", canvas2))
 
-        # ── Gráfica 4: Ingresos últimos 7 días (siempre fija para contexto) ──
-        semana = obtener_ingresos_rango(
+        # ── Gráfica 3: PASTEL — Distribución de ingresos últimos 7 días ──
+        semana_data = obtener_ingresos_rango(
             (datetime.now() - timedelta(days=6)).strftime("%Y-%m-%d"),
             datetime.now().strftime("%Y-%m-%d")
         )
-        dias_labels = [
+        pie_labels = [
             datetime.strptime(f, "%Y-%m-%d").strftime("%a %d")
-            for f, _ in semana
+            for f, _ in semana_data
         ]
-        ingresos = [v for _, v in semana]
-        hoy_str = datetime.now().strftime("%Y-%m-%d")
-        bar_colors = [
-            PURPLE if semana[i][0] == hoy_str else "#3d3555"
-            for i in range(len(semana))
-        ]
+        pie_vals = [v for _, v in semana_data]
+        pie_filtrado = [(l, v) for l, v in zip(pie_labels, pie_vals) if v > 0]
 
-        fig4, ax4 = _make_figure(5, 2.4)
-        ax4.bar(dias_labels, ingresos, color=bar_colors, width=0.6, zorder=2)
-        ax4.yaxis.set_major_formatter(
-            matplotlib.ticker.FuncFormatter(lambda x, _: f"${x/1000:.0f}k")
-        )
-        ax4.grid(axis="y", color=BORDER, linewidth=0.5, zorder=0)
-        ax4.set_axisbelow(True)
-        ax4.tick_params(axis="x", rotation=30, labelsize=7)
+        fig3, ax3 = _make_figure(4.5, 2.4)
+        if pie_filtrado:
+            labels_f, vals_f = zip(*pie_filtrado)
+            colores_pie = colores[:len(vals_f)]
+            wedges, _, autotexts = ax3.pie(
+                vals_f,
+                labels=None,
+                colors=colores_pie,
+                autopct="%1.0f%%",
+                startangle=90,
+                wedgeprops={"edgecolor": BG_CARD, "linewidth": 2},
+                textprops={"color": TEXT, "fontsize": 7}
+            )
+            ax3.legend(
+                wedges, labels_f,
+                loc="center left", bbox_to_anchor=(0.85, 0.5),
+                fontsize=7, frameon=False, labelcolor=TEXT
+            )
+        else:
+            ax3.text(0.5, 0.5, "Sin datos", ha="center", va="center",
+                     color=MUTED, fontsize=10)
+            ax3.axis("off")
+        canvas3 = FigureCanvas(fig3)
+        canvas3.setFixedHeight(210)
+        self.row2.addWidget(ChartCard("Ingresos últimos 7 días", canvas3))
+
+        # ── Gráfica 4: ANILLO — Platos más pedidos ──
+        platos_data = obtener_platos_mas_pedidos(self.fecha_inicio, self.fecha_fin)
+        fig4, ax4 = _make_figure(4.5, 2.4)
+        if platos_data:
+            nombres = [p[0][:14] for p in platos_data]
+            cantidades = [p[1] for p in platos_data]
+            colores_donut = colores[:len(nombres)]
+            wedges, _ = ax4.pie(
+                cantidades, colors=colores_donut,
+                wedgeprops={"width": 0.55, "edgecolor": BG_CARD, "linewidth": 2},
+                startangle=90
+            )
+            ax4.legend(
+                wedges, [f"{n} ({c})" for n, c in zip(nombres, cantidades)],
+                loc="center left", bbox_to_anchor=(0.82, 0.5),
+                fontsize=7, frameon=False, labelcolor=TEXT
+            )
+        else:
+            ax4.text(0.5, 0.5, "Sin datos", ha="center", va="center",
+                     color=MUTED, fontsize=10)
+            ax4.axis("off")
         canvas4 = FigureCanvas(fig4)
         canvas4.setFixedHeight(210)
-        self.row2.addWidget(ChartCard("Últimos 7 días", canvas4))
-
-        # ── Comparativa hoy vs ayer ──
-        hoy = datetime.now().strftime("%Y-%m-%d")
-        ayer = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
-        m_hoy = obtener_metricas(hoy, hoy)
-        m_ayer = obtener_metricas(ayer, ayer)
-
-        fig5, ax5 = _make_figure(8, 2.0)
-        categorias = ["Ventas", "Pedidos", "Facturas"]
-        vals_hoy = [m_hoy["ventas"] / 1000, m_hoy["pedidos_activos"], m_hoy["facturas"]]
-        vals_ayer = [m_ayer["ventas"] / 1000, m_ayer["pedidos_activos"], m_ayer["facturas"]]
-
-        x = range(len(categorias))
-        ancho = 0.35
-        ax5.bar([i - ancho/2 for i in x], vals_hoy,
-                width=ancho, color=PURPLE, label="Hoy",
-                zorder=2, alpha=0.9)
-        ax5.bar([i + ancho/2 for i in x], vals_ayer,
-                width=ancho, color="#3d3555", label="Ayer",
-                zorder=2, alpha=0.9)
-        ax5.set_xticks(list(x))
-        ax5.set_xticklabels(categorias, fontsize=9)
-        ax5.legend(fontsize=8, frameon=False, labelcolor=TEXT)
-        ax5.grid(axis="y", color=BORDER, linewidth=0.5, zorder=0)
-        ax5.set_axisbelow(True)
-        canvas5 = FigureCanvas(fig5)
-        canvas5.setFixedHeight(180)
-        self.row3.addWidget(ChartCard("Comparativa hoy vs ayer", canvas5))
+        self.row2.addWidget(ChartCard("Platos más pedidos", canvas4))
 
     # ── Tabla facturas ──
 
